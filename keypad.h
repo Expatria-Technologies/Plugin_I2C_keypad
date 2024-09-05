@@ -133,8 +133,8 @@ typedef enum {
     MachineMsg_ClearMessage = 255,
 } msg_type_t;
 
-typedef struct {
-    uint16_t address;
+typedef struct __attribute__((packed)){
+    uint16_t address;  //address is only used for I2C transactions only present in GRBLHAL plugin
     machine_state_t machine_state;
     uint8_t machine_substate;
     axes_signals_t home_state;
@@ -180,7 +180,7 @@ typedef struct {
 
 extern keypad_t keypad;
 
-typedef struct {
+typedef struct __attribute__((packed)) {
 int32_t uptime;
 jog_mode_t jog_mode;
 int32_t feed_over;
@@ -195,6 +195,7 @@ float z_axis;
 float a_axis;
 } pendant_count_packet_t;
 
+ISR_CODE void ISR_FUNC(i2c_enqueue_keycode)(char c);
 
 bool keypad_init (void);
 bool keypad_enqueue_keycode (char c);

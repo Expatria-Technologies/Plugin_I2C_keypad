@@ -401,12 +401,12 @@ static void send_status_info (void)
     static uint32_t last_ms;
     uint32_t ms = hal.get_elapsed_ticks();
 
-    if(ms < last_ms + 10) // don't spam the port
-    return;
+    //if(ms < last_ms + 500) // don't spam the port
+    //return;
     
     prepare_status_info(status_ptr);
 
-    I2C_PendantWrite (KEYPAD_I2CADDR, status_ptr, sizeof(machine_status_packet_t));
+    PendantWrite (KEYPAD_I2CADDR, status_ptr, sizeof(machine_status_packet_t));
 
     last_ms = ms;   
 }
@@ -659,7 +659,7 @@ static void keypad_process_keypress (sys_state_t state)
     }
 }
 
-static void read_count_info (sys_state_t state)
+static void apply_count_info (sys_state_t state)
 {   
     //for now just assume all is well if uptime is increasing.    
     if (count_packet.uptime > previous_count_packet.uptime)
@@ -670,7 +670,6 @@ static void read_count_info (sys_state_t state)
 
         hal.delay_ms(10, NULL);
     
-    send_status_info();
     previous_count_packet = count_packet;
 }
 
@@ -684,39 +683,11 @@ static void onReportOptions (bool newopt)
     }
 }
 
-ISR_CODE bool ISR_FUNC(keypad_enqueue_keycode)(char c)
-{
-    uint32_t bptr = (keybuf.head + 1) & (KEYBUF_SIZE - 1);    // Get next head pointer
-
-#if MPG_MODE != 2
-    if(c == CMD_MPG_MODE_TOGGLE)
-        return true;
-#endif
-
-    if(c == CMD_JOG_CANCEL || c == ASCII_CAN) {
-        keyreleased = true;
-        if(jogging) {
-            jogging = false;
-            grbl.enqueue_realtime_command(CMD_JOG_CANCEL);
-        }
-        keybuf.tail = keybuf.head;      // Flush keycode buffer.
-    } else if(bptr != keybuf.tail) {    // If not buffer full
-        keybuf.buf[keybuf.head] = c;    // add data to buffer
-        keybuf.head = bptr;             // and update pointer.
-        keyreleased = false;
-        // Tell foreground process to process keycode
-        if(keypad_nvs_address != 0)
-            protocol_enqueue_rt_command(keypad_process_keypress);
-    }
-
-    return true;
-}
-
 #if KEYPAD_ENABLE == 1
 
-ISR_CODE static void ISR_FUNC(i2c_process_counts)()
+void i2c_process_counts (void)
 {   
-    protocol_enqueue_rt_command(read_count_info);    
+    protocol_enqueue_rt_command(apply_count_info);    
 }
 
 static void warning_protocol (uint_fast16_t state)
@@ -726,7 +697,7 @@ static void warning_protocol (uint_fast16_t state)
 
 static void initialize_count_info (void)
 {    
-    I2C_PendantRead (KEYPAD_I2CADDR, sizeof(machine_status_packet_t), sizeof(pendant_count_packet_t), count_ptr, i2c_process_counts);
+    PendantRead (KEYPAD_I2CADDR, sizeof(machine_status_packet_t), sizeof(pendant_count_packet_t), count_ptr, i2c_process_counts);
     //sprintf(charbuf, "INIT X %d Y %d Z %d UT %d", count_packet.x_axis, count_packet.y_axis, count_packet.z_axis, count_packet.uptime);
     //report_message(charbuf, Message_Info);
     previous_count_packet = count_packet;
@@ -738,11 +709,15 @@ static void initialize_count_info (void)
     }else{
     //else, report error
     protocol_enqueue_rt_command(warning_protocol);
-    pendant_attached = 0;
+    //pendant_attached = 0;
     }
 }
 
-ISR_CODE static void ISR_FUNC(i2c_enqueue_keycode)(char c)
+static void keypad_process_pendant (sys_state_t state){
+    PendantRead(KEYPAD_I2CADDR,0,sizeof(pendant_count_packet_t), count_ptr, i2c_process_counts);
+}
+
+ISR_CODE void ISR_FUNC(i2c_enqueue_keycode)(char c)
 {
     uint32_t bptr = (keybuf.head + 1) & (KEYBUF_SIZE - 1);    // Get next head pointer
 
@@ -772,12 +747,7 @@ ISR_CODE bool ISR_FUNC(keypad_strobe_handler)(uint_fast8_t id, bool keydown)
 {
     keyreleased = !keydown;
 
-    if(keydown){
-        //i2c_get_keycode(KEYPAD_I2CADDR, i2c_enqueue_keycode);
-        I2C_PendantRead(KEYPAD_I2CADDR,0,sizeof(pendant_count_packet_t), count_ptr, i2c_process_counts);
-    }
-
-    else if(jogging) {
+    if(jogging) {
         jogging = false;
         grbl.enqueue_realtime_command(CMD_JOG_CANCEL);
         keybuf.tail = keybuf.head; // flush keycode buffer
@@ -785,6 +755,11 @@ ISR_CODE bool ISR_FUNC(keypad_strobe_handler)(uint_fast8_t id, bool keydown)
     else {
         keybuf.tail = keybuf.head; // flush keycode buffer
     }
+
+    //i2c_get_keycode(KEYPAD_I2CADDR, i2c_enqueue_keycode);
+    //I2C_PendantRead(KEYPAD_I2CADDR,0,sizeof(pendant_count_packet_t), count_ptr, i2c_process_counts);
+
+    protocol_enqueue_rt_command(keypad_process_pendant);
 
     return true;
 }
@@ -807,7 +782,7 @@ static void keypad_poll (void)
     static uint32_t watchdog_ticks;
     static uint32_t last_ms_counts;
     uint32_t ms = hal.get_elapsed_ticks();
-
+#if 0
     if(ms > watchdog_ticks + 1){
         watchdog_counter++;
         watchdog_ticks = ms;
@@ -815,7 +790,7 @@ static void keypad_poll (void)
 
     if(watchdog_counter > WATCHDOG_DELAY && pendant_attached){
         watchdog_counter = 0;
-        pendant_attached = 0;
+        //pendant_attached = 0;
         protocol_enqueue_rt_command(warning_disconnect);
         grbl.enqueue_realtime_command(CMD_FEED_HOLD);
         //plugin_reset();
@@ -845,7 +820,13 @@ static void keypad_poll (void)
             last_ms = ms;
         }
     }
-    
+#else
+    if(ms > last_ms_counts + READ_COUNT_INTERVAL){ //don't spam the port
+        send_status_info();
+        last_ms_counts = ms;
+        last_ms = ms;
+    }
+#endif
 }
 
 static void keypad_poll_realtime (sys_state_t grbl_state)
@@ -913,7 +894,9 @@ bool keypad_init (void)
 
         on_state_change = grbl.on_state_change;             // Subscribe to the state changed event by saving away the original
         grbl.on_state_change = onStateChanged;              // function pointer and adding ours to the chain.   
-         
+
+        pendant_attached = 1;
+
     }
     else{
         protocol_enqueue_rt_command(warning_msg);

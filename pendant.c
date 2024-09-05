@@ -280,32 +280,33 @@ bool process_count_info (uint8_t * prev_count_ptr, uint8_t * count_ptr)
     double feedrate;
         
         //this reads the data and processes any changes
-        //hal.stream.write("PROCESS"  ASCII_EOL);
+        hal.stream.write("PROCESS"  ASCII_EOL);
 
-        //sprintf(charbuf, "X %d Y %d Z %d UT %d", count_packet->x_axis, count_packet->y_axis, count_packet->z_axis, count_packet->uptime);
-        //report_message(charbuf, Message_Info);    
+        sprintf(charbuf, "X %f Y %f Z %f UT %d", count_packet->x_axis, count_packet->y_axis, count_packet->z_axis, count_packet->uptime);
+        report_message(charbuf, Message_Info);    
 
-        //sprintf(charbuf, "X %d Y %d Z %d UT %d", count_packet->x_axis - previous_count_packet->x_axis,
-        //                                         count_packet->y_axis - previous_count_packet->y_axis, 
-        //                                         count_packet->z_axis - previous_count_packet->z_axis, 
-        //                                         count_packet->uptime - previous_count_packet->uptime );
-        //report_message(charbuf, Message_Info);        
+        /*sprintf(charbuf, "X %d Y %d Z %d UT %d", count_packet->x_axis - previous_count_packet->x_axis,
+                                                 count_packet->y_axis - previous_count_packet->y_axis, 
+                                                 count_packet->z_axis - previous_count_packet->z_axis, 
+                                                 count_packet->uptime - previous_count_packet->uptime );
+        report_message(charbuf, Message_Info);       */ 
 
+        #if 0
         //if deltas are zero, do not start jogging.
         if( count_packet->x_axis - previous_count_packet->x_axis != 0 ||
             count_packet->y_axis - previous_count_packet->y_axis != 0 ||
             count_packet->z_axis - previous_count_packet->z_axis != 0 || 
             count_packet->a_axis - previous_count_packet->a_axis != 0 ){
             
-            deltas.x = (float)(count_packet->x_axis - previous_count_packet->x_axis)/1000;
-            deltas.y = (float)(count_packet->y_axis - previous_count_packet->y_axis)/1000;
-            deltas.z = (float)(count_packet->z_axis - previous_count_packet->z_axis)/1000;
+            deltas.x = (float)(count_packet->x_axis - previous_count_packet->x_axis);
+            deltas.y = (float)(count_packet->y_axis - previous_count_packet->y_axis);
+            deltas.z = (float)(count_packet->z_axis - previous_count_packet->z_axis);
             #if N_AXIS > 3
-            deltas.a = (float)(count_packet->a_axis - previous_count_packet->a_axis)/1000;
+            deltas.a = (float)(count_packet->a_axis - previous_count_packet->a_axis);
             #else
             deltas.a = 0;
             #endif
-
+            
             //sprintf(charbuf, "X %s UT %d", ftoa(deltas.x, 8), count_packet->uptime - previous_count_packet->uptime);
             //report_message(charbuf, Message_Info);   
 
@@ -368,14 +369,14 @@ bool process_count_info (uint8_t * prev_count_ptr, uint8_t * count_ptr)
 
             if(count_packet->spindle_over > sys.override.spindle_rpm){
                 if(count_packet->spindle_over - sys.override.spindle_rpm >= 10)
-                    enqueue_accessory_override(CMD_OVERRIDE_SPINDLE_COARSE_PLUS);
+                    enqueue_spindle_override(CMD_OVERRIDE_SPINDLE_COARSE_PLUS);
                 else
-                    enqueue_accessory_override(CMD_OVERRIDE_SPINDLE_FINE_PLUS);
+                    enqueue_spindle_override(CMD_OVERRIDE_SPINDLE_FINE_PLUS);
             } else if (count_packet->spindle_over < sys.override.spindle_rpm){
                 if(sys.override.spindle_rpm - count_packet->spindle_over >= 10)
-                    enqueue_accessory_override(CMD_OVERRIDE_SPINDLE_COARSE_MINUS);
+                    enqueue_spindle_override(CMD_OVERRIDE_SPINDLE_COARSE_MINUS);
                 else
-                    enqueue_accessory_override(CMD_OVERRIDE_SPINDLE_FINE_MINUS);                
+                    enqueue_spindle_override(CMD_OVERRIDE_SPINDLE_FINE_MINUS);                
             }                
             //sys.override.rapid_rate
 
@@ -441,5 +442,8 @@ bool process_count_info (uint8_t * prev_count_ptr, uint8_t * count_ptr)
         }            
         //if a button is active
 
+#endif
+
+    memcpy(previous_count_packet, count_packet, sizeof(pendant_count_packet_t));
     return cmd;
 }

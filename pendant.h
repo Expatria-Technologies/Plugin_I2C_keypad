@@ -74,8 +74,8 @@
 #define ALT_RAISE_PRESSED           (1 << (28) )
 #define ALT_LOWER_PRESSED           (1 << (29) )
 
-void I2C_PendantRead (uint32_t i2cAddr, uint16_t memaddress, uint16_t size, uint8_t * data, keycode_callback_ptr callback);
-void I2C_PendantWrite (uint32_t i2cAddr, uint8_t *buf, uint16_t bytes);
+void PendantRead (uint32_t i2cAddr, uint16_t memaddress, uint16_t size, uint8_t * data, void* callback);
+void PendantWrite (uint32_t i2cAddr, uint8_t *buf, uint16_t bytes);
 
 bool process_count_info (uint8_t * prev_count_ptr, uint8_t * count_ptr);
 void prepare_status_info (uint8_t * status_ptr);
