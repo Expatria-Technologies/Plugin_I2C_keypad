@@ -741,6 +741,8 @@ ISR_CODE void ISR_FUNC(i2c_enqueue_keycode)(char c)
         if(keypad_nvs_address != 0)
             protocol_enqueue_rt_command(keypad_process_keypress);
     }
+
+    return true;
 }
 
 ISR_CODE bool ISR_FUNC(keypad_strobe_handler)(uint_fast8_t id, bool keydown)
@@ -752,9 +754,9 @@ ISR_CODE bool ISR_FUNC(keypad_strobe_handler)(uint_fast8_t id, bool keydown)
         grbl.enqueue_realtime_command(CMD_JOG_CANCEL);
         keybuf.tail = keybuf.head; // flush keycode buffer
     }
-    else {
-        keybuf.tail = keybuf.head; // flush keycode buffer
-    }
+    //else {
+    //    keybuf.tail = keybuf.head; // flush keycode buffer
+    //}
 
     //i2c_get_keycode(KEYPAD_I2CADDR, i2c_enqueue_keycode);
     //I2C_PendantRead(KEYPAD_I2CADDR,0,sizeof(pendant_count_packet_t), count_ptr, i2c_process_counts);

@@ -92,7 +92,8 @@ typedef enum {
 typedef enum {
     JogModify_1 = 0,
     JogModify_01,
-    JogModify_001
+    JogModify_001,
+    JogModify_0001
 } jogmodify_t;
 
 typedef union {
@@ -140,6 +141,7 @@ typedef struct __attribute__((packed)){
     axes_signals_t home_state;
     uint16_t feed_override; // size changed in latest version!
     uint16_t spindle_override;
+    //uint16_t rapid_override; //need to add this in.
     uint8_t spindle_stop;
     spindle_state_t spindle_state;
     int spindle_rpm;

@@ -177,7 +177,9 @@ void prepare_status_info (uint8_t * status_ptr)
             jog_modifier = 0.1;                    
         break;
         case JogModify_001:
-            jog_modifier = 0.01;                    
+            jog_modifier = 0.01;
+        case JogModify_0001:
+            jog_modifier = 0.001;                                 
         break;  
     }
     
@@ -216,7 +218,7 @@ void prepare_status_info (uint8_t * status_ptr)
     //check the probe pin, if it is asserted, add it to the state
 
     status_packet->coolant_state = hal.coolant.get_state();
-    status_packet->feed_override = sys.override.feed_rate;
+    status_packet->feed_override = sys.override.feed_rate;    
 
     spindle = spindle_get(0);
 
@@ -229,6 +231,8 @@ void prepare_status_info (uint8_t * status_ptr)
             status_packet->spindle_rpm = spindle->get_data(SpindleData_RPM)->rpm;
     } else
         status_packet->spindle_rpm = spindle->param->rpm;
+
+    status_packet->spindle_override = spindle->param->override_pct;
 
     status_packet->status_code = (uint8_t) sys.alarm;
     status_packet->home_state.value = (uint8_t)(sys.homing.mask & sys.homed.mask);
@@ -244,6 +248,9 @@ void prepare_status_info (uint8_t * status_ptr)
 
     status_packet->feed_rate = st_get_realtime_rate();
     
+    status_packet->jog_mode.mode = jogMode;
+    status_packet->jog_mode.modifier = jog_modifier;
+
     switch(jogMode){
         case JogMode_Slow:
         status_packet->jog_stepsize = jog.slow_speed * jog_modifier;
@@ -291,7 +298,7 @@ bool process_count_info (uint8_t * prev_count_ptr, uint8_t * count_ptr)
                                                  count_packet->uptime - previous_count_packet->uptime );
         report_message(charbuf, Message_Info);       */ 
 
-        #if 0
+        #if 1
         //if deltas are zero, do not start jogging.
         if( count_packet->x_axis - previous_count_packet->x_axis != 0 ||
             count_packet->y_axis - previous_count_packet->y_axis != 0 ||
@@ -317,7 +324,7 @@ bool process_count_info (uint8_t * prev_count_ptr, uint8_t * count_ptr)
             distance=sqrt((deltas.x *deltas.x ) + 
                           (deltas.y *deltas.y ) + 
                           (deltas.z *deltas.z ));
-            feedrate = (distance/READ_COUNT_INTERVAL)*1000*60;
+            feedrate = (distance/READ_COUNT_INTERVAL)*60;
 
             jog_command(command, "X?");
             strrepl(command, '?', ftoa(deltas.x, 3));
@@ -334,7 +341,6 @@ bool process_count_info (uint8_t * prev_count_ptr, uint8_t * count_ptr)
 
             strcat(command, "F");
             strcat(command, ftoa(feedrate, 3));
-
 
             //grbl.enqueue_realtime_command(CMD_JOG_CANCEL);
             //report_message(command, Message_Info);
@@ -388,15 +394,15 @@ bool process_count_info (uint8_t * prev_count_ptr, uint8_t * count_ptr)
             if(count_packet->buttons & HALT_PRESSED)
                 i2c_enqueue_keycode(RESET);
             if(count_packet->buttons & HOLD_PRESSED)
-                i2c_enqueue_keycode(CMD_FEED_HOLD_LEGACY);
+                i2c_enqueue_keycode(CMD_FEED_HOLD);
             if(count_packet->buttons & CYCLE_START_PRESSED)
-                i2c_enqueue_keycode(CMD_CYCLE_START_LEGACY);
+                i2c_enqueue_keycode(CMD_CYCLE_START);
             if(count_packet->buttons & SPINDLE_PRESSED)
                 i2c_enqueue_keycode(CMD_OVERRIDE_SPINDLE_STOP);  
             if(count_packet->buttons & MIST_PRESSED)
-                i2c_enqueue_keycode('m');  
+                i2c_enqueue_keycode('M');  
             if(count_packet->buttons & FLOOD_PRESSED)
-                i2c_enqueue_keycode('h');  
+                i2c_enqueue_keycode('C');  
             if(count_packet->buttons & HOME_PRESSED)
                 i2c_enqueue_keycode('H');  
             //if(count_packet->buttons & SPINDLE_OVER_DOWN_PRESSED)
