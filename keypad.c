@@ -665,10 +665,7 @@ static void apply_count_info (sys_state_t state)
     if (count_packet.uptime > previous_count_packet.uptime)
         watchdog_counter = 0;
 
-    cmd_process = process_count_info(prev_count_ptr, count_ptr);   
-    //process_count_info(prev_count_ptr, count_ptr); 
-
-        hal.delay_ms(10, NULL);
+    cmd_process = process_count_info(prev_count_ptr, count_ptr, jogging, jogMode, jogModify, keypad);   
     
     previous_count_packet = count_packet;
 }
@@ -748,12 +745,12 @@ ISR_CODE void ISR_FUNC(i2c_enqueue_keycode)(char c)
 ISR_CODE bool ISR_FUNC(keypad_strobe_handler)(uint_fast8_t id, bool keydown)
 {
     keyreleased = !keydown;
-
-    if(jogging) {
-        jogging = false;
-        grbl.enqueue_realtime_command(CMD_JOG_CANCEL);
-        keybuf.tail = keybuf.head; // flush keycode buffer
-    }
+   
+    //if(jogging) {
+    //    jogging = false;
+    //    grbl.enqueue_realtime_command(CMD_JOG_CANCEL);
+    //    keybuf.tail = keybuf.head; // flush keycode buffer
+    //}
     //else {
     //    keybuf.tail = keybuf.head; // flush keycode buffer
     //}
@@ -824,6 +821,11 @@ static void keypad_poll (void)
     }
 #else
     if(ms > last_ms_counts + READ_COUNT_INTERVAL){ //don't spam the port
+
+        //if jogging, check the buttons to make sure they are still depressed.
+        if(jogging)
+            protocol_enqueue_rt_command(keypad_process_pendant);
+
         send_status_info();
         last_ms_counts = ms;
         last_ms = ms;

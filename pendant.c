@@ -56,7 +56,7 @@ static jogmodify_t jogModify = JogModify_1;
 static on_spindle_select_ptr on_spindle_select;
 spindle_ptrs_t *current_spindle = NULL;
 
-char charbuf[127];
+char charbuf[256];
 
 typedef struct {
     char buf[KEYBUF_SIZE];
@@ -266,10 +266,12 @@ void prepare_status_info (uint8_t * status_ptr)
     status_packet->current_wcs = gc_state.modal.coord_system.id;
 }
 
-bool process_count_info (uint8_t * prev_count_ptr, uint8_t * count_ptr)
+bool process_count_info (uint8_t * prev_count_ptr, uint8_t * count_ptr, bool jogging, jogmode_t jogmode, jogmodify_t jogmodify, keypad_t keypad)
 {    
 
     bool cmd = 0;
+
+    static bool mpg_jogging;
     
     pendant_count_packet_t * count_packet = (pendant_count_packet_t*) count_ptr;
     pendant_count_packet_t * previous_count_packet = (pendant_count_packet_t*) prev_count_ptr;
@@ -288,15 +290,35 @@ bool process_count_info (uint8_t * prev_count_ptr, uint8_t * count_ptr)
         
         //this reads the data and processes any changes
         hal.stream.write("PROCESS"  ASCII_EOL);
+        /*
+        int32_t uptime;
+        jog_mode_t jog_mode;
+        int32_t feed_over;
+        int32_t spindle_over;
+        int32_t rapid_over;
+        uint32_t buttons;
+        float feedrate; 
+        float spindle_rpm; 
+        float x_axis;
+        float y_axis;
+        float z_axis;
+        float a_axis;
 
-        sprintf(charbuf, "X %f Y %f Z %f UT %d", count_packet->x_axis, count_packet->y_axis, count_packet->z_axis, count_packet->uptime);
-        report_message(charbuf, Message_Info);    
+        pendant_count_packet_t;*/
 
-        /*sprintf(charbuf, "X %d Y %d Z %d UT %d", count_packet->x_axis - previous_count_packet->x_axis,
+        /*  need to add a setting for "BASE RPM"
+            need to make overrides use deltas*/
+
+        /*sprintf(charbuf, "FO %d SO %d RO %d FD %f RP %f X %f Y %f Z %f UT %d JM %d JI %d BT %d", count_packet->feed_over, count_packet->spindle_over, count_packet->rapid_over, count_packet->feedrate, count_packet->spindle_rpm,
+                                                                                           count_packet->x_axis, count_packet->y_axis, count_packet->z_axis, count_packet->uptime, count_packet->jog_mode.mode, 
+                                                                                           count_packet->jog_mode.modifier, count_packet->buttons);
+        report_message(charbuf, Message_Info);*/
+
+        sprintf(charbuf, "X %f Y %f Z %f UT %d", count_packet->x_axis - previous_count_packet->x_axis,
                                                  count_packet->y_axis - previous_count_packet->y_axis, 
                                                  count_packet->z_axis - previous_count_packet->z_axis, 
-                                                 count_packet->uptime - previous_count_packet->uptime );
-        report_message(charbuf, Message_Info);       */ 
+                                                 count_packet->uptime);
+        report_message(charbuf, Message_Info);  
 
         #if 1
         //if deltas are zero, do not start jogging.
@@ -346,8 +368,12 @@ bool process_count_info (uint8_t * prev_count_ptr, uint8_t * count_ptr)
             //report_message(command, Message_Info);
             grbl.enqueue_gcode((char *)command);
             cmd = 1;
-        } else{
-            grbl.enqueue_realtime_command(CMD_JOG_CANCEL);
+            mpg_jogging = 1;
+        } else {
+            if(mpg_jogging) {
+                grbl.enqueue_realtime_command(CMD_JOG_CANCEL);
+                mpg_jogging = 0;
+            }
         }
 
         //deal with overrides
@@ -387,7 +413,19 @@ bool process_count_info (uint8_t * prev_count_ptr, uint8_t * count_ptr)
             //sys.override.rapid_rate
 
             cmd = 1;
-        }        
+        }
+
+        //deal with Jog Modes
+        if( count_packet->jog_mode.mode != jogMode){
+            jogMode = count_packet->jog_mode.mode;
+                if(keypad.on_jogmode_changed)
+                    keypad.on_jogmode_changed(jogMode);
+        }
+        if( count_packet->jog_mode.modifier != jogModify){
+            jogModify = count_packet->jog_mode.modifier;
+                if(keypad.on_jogmode_changed)
+                    keypad.on_jogmode_changed(jogMode);
+        }                                   
             
         if (count_packet->buttons > 0){
             //assign_button_values(count_packet->buttons);

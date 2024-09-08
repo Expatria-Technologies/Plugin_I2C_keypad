@@ -199,6 +199,9 @@ float a_axis;
 
 ISR_CODE void ISR_FUNC(i2c_enqueue_keycode)(char c);
 
+bool process_count_info (uint8_t * prev_count_ptr, uint8_t * count_ptr, bool jogging, jogmode_t jogmode, jogmodify_t jogmodify, keypad_t keypad);
+void prepare_status_info (uint8_t * status_ptr);
+
 bool keypad_init (void);
 bool keypad_enqueue_keycode (char c);
 
