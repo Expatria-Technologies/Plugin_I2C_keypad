@@ -231,7 +231,7 @@ static void execute_macro (uint8_t macro)
         is_executing = true;
         command = macro_plugin_settings.macro[macro].data;
         if(!(*command == '\0' || *command == 0xFF))     // If valid command
-            protocol_enqueue_rt_command(run_macro);     // register run_macro function to be called from foreground process.
+            protocol_enqueue_realtime_command(run_macro);     // register run_macro function to be called from foreground process.
     }
 }
 
@@ -508,7 +508,7 @@ static void send_status_info (void)
         break;
     }
     
-    status_packet.current_wcs = gc_state.modal.coord_system.id;       
+    status_packet.current_wcs = gc_state.modal.g5x_offset.id;       
 
     i2c_send (KEYPAD_I2CADDR, status_ptr, sizeof(Machine_status_packet), 0); 
 
@@ -557,8 +557,8 @@ static void keypad_process_keypress (sys_state_t state)
                 execute_macro(4); 
                 break;
              case MACROHOME:                                   // change WCS                
-                if (gc_state.modal.coord_system.id  < N_WorkCoordinateSystems-1)
-                    strcat(strcpy(command, "G"), map_coord_system(gc_state.modal.coord_system.id+1));    
+                if (gc_state.modal.g5x_offset.id  < N_WorkCoordinateSystems-1)
+                    strcat(strcpy(command, "G"), map_coord_system(gc_state.modal.g5x_offset.id+1));    
                 else
                     strcat(strcpy(command, "G"), map_coord_system(0x00));
                 break;                
@@ -795,7 +795,7 @@ ISR_CODE bool ISR_FUNC(keypad_enqueue_keycode)(char c)
         keyreleased = false;
         // Tell foreground process to process keycode
         if(keypad_nvs_address != 0)
-            protocol_enqueue_rt_command(keypad_process_keypress);
+            protocol_enqueue_realtime_command(keypad_process_keypress);
     }
 
     return true;
@@ -816,7 +816,7 @@ ISR_CODE static void ISR_FUNC(i2c_enqueue_keycode)(char c)
             grbl.enqueue_realtime_command(CMD_RESET);
         break;
         case 'H':
-            protocol_enqueue_rt_command(run_homing);
+            protocol_enqueue_realtime_command(run_homing);
         break;                          
     }    
        
@@ -825,7 +825,7 @@ ISR_CODE static void ISR_FUNC(i2c_enqueue_keycode)(char c)
         keybuf.head = bptr;             // and update pointer
         // Tell foreground process to process keycode
         if(keypad_nvs_address != 0)
-            protocol_enqueue_rt_command(keypad_process_keypress);
+            protocol_enqueue_realtime_command(keypad_process_keypress);
     }
 }
 
