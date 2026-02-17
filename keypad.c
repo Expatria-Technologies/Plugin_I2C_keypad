@@ -956,7 +956,7 @@ bool keypad_init (void)
          
     }
     else{
-        protocol_enqueue_rt_command(warning_msg);
+        protocol_enqueue_realtime_command(warning_msg);
     }   
 
     return macro_nvs_address && keypad_nvs_address != 0;
