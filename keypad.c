@@ -197,9 +197,9 @@ static status_code_t trap_status_report (status_code_t status_code)
 }
 
 // Actual start of macro execution.
-static void run_macro (uint_fast16_t state)
+static void run_macro (void *data)
 {
-    if(state == STATE_IDLE && hal.stream.read != get_macro_char) {
+    if(state_get() == STATE_IDLE && hal.stream.read != get_macro_char) {
         stream_read = hal.stream.read;                      // Redirect input stream to read from the macro instead of
         hal.stream.read = get_macro_char;                   // the active stream. This ensures that input streams are not mingled.
         grbl.report.status_message = trap_status_report;    // Add trap for status messages so we can terminate on errors.
@@ -207,7 +207,7 @@ static void run_macro (uint_fast16_t state)
 }
 
 // enqueue homing command by switching input stream.
-static void run_homing (uint_fast16_t state)
+static void run_homing (void *data)
 {
     if(!is_executing && ( (state_get() == STATE_IDLE) || (state_get() == STATE_ALARM) ) ) {
         is_executing = true;
@@ -231,7 +231,7 @@ static void execute_macro (uint8_t macro)
         is_executing = true;
         command = macro_plugin_settings.macro[macro].data;
         if(!(*command == '\0' || *command == 0xFF))     // If valid command
-            protocol_enqueue_realtime_command(run_macro);     // register run_macro function to be called from foreground process.
+            task_add_immediate(run_macro, NULL);     // register run_macro function to be called from foreground process.
     }
 }
 
@@ -515,7 +515,7 @@ static void send_status_info (void)
     last_ms = ms;   
 }
 
-static void keypad_process_keypress (sys_state_t state)
+static void keypad_process_keypress (void* data)
 {
     bool addedGcode, jogCommand = false;
     char command[35] = "", keycode = keypad_get_keycode();
@@ -528,7 +528,7 @@ static void keypad_process_keypress (sys_state_t state)
 
     if(keycode) {
 
-        if(keypad.on_keypress_preview && keypad.on_keypress_preview(keycode, state))
+        if(keypad.on_keypress_preview && keypad.on_keypress_preview(keycode, state_get()))
             return;
 
         switch(keycode) {
@@ -795,7 +795,7 @@ ISR_CODE bool ISR_FUNC(keypad_enqueue_keycode)(char c)
         keyreleased = false;
         // Tell foreground process to process keycode
         if(keypad_nvs_address != 0)
-            protocol_enqueue_realtime_command(keypad_process_keypress);
+            task_add_immediate(keypad_process_keypress, NULL);
     }
 
     return true;
@@ -816,7 +816,7 @@ ISR_CODE static void ISR_FUNC(i2c_enqueue_keycode)(char c)
             grbl.enqueue_realtime_command(CMD_RESET);
         break;
         case 'H':
-            protocol_enqueue_realtime_command(run_homing);
+            task_add_immediate(run_homing, NULL);
         break;                          
     }    
        
@@ -825,7 +825,7 @@ ISR_CODE static void ISR_FUNC(i2c_enqueue_keycode)(char c)
         keybuf.head = bptr;             // and update pointer
         // Tell foreground process to process keycode
         if(keypad_nvs_address != 0)
-            protocol_enqueue_realtime_command(keypad_process_keypress);
+            task_add_immediate(keypad_process_keypress, NULL);
     }
 }
 
@@ -908,7 +908,7 @@ static void jogmodify_changed (jogmodify_t jogModify)
     send_status_info();
 }
 
-static void warning_msg (uint_fast16_t state)
+static void warning_msg (void *data)
 {
     report_message("Keypad plugin failed to initialize!", Message_Warning);
 }
@@ -956,7 +956,7 @@ bool keypad_init (void)
          
     }
     else{
-        protocol_enqueue_realtime_command(warning_msg);
+        task_run_on_startup(warning_msg, NULL);
     }   
 
     return macro_nvs_address && keypad_nvs_address != 0;
